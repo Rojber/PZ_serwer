@@ -1,1 +1,1 @@
-web: python REST.py
+web: uwsgi uwsgi.ini
