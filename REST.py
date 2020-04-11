@@ -6,7 +6,7 @@ from bson import json_util, ObjectId
 import json
 import populate_database
 
-mongoClient = MongoClient("mongodb+srv://passwordserver:pogchamp@passwordmanager-jxmmz.mongodb.net/test?retryWrites=true&w=majority")
+mongoClient = MongoClient("mongodb+srv://passwordserver:pogchamp@passwordmanager-jxmmz.mongodb.net/test?retryWrites=true&w=majority", connect=False)
 db = mongoClient.passwordManager
 app = flask.Flask(__name__)
 app.config["DEBUG"] = True
