@@ -8,12 +8,8 @@ import populate_database
 
 mongoClient = MongoClient("mongodb+srv://passwordserver:pogchamp@passwordmanager-jxmmz.mongodb.net/test?retryWrites=true&w=majority")
 db = mongoClient.passwordManager
-db.accounts.drop()
 app = flask.Flask(__name__)
 app.config["DEBUG"] = True
-populate_database.populate(db)
-for c in db['accounts'].find():
-    pprint(c)
 
 
 @app.route('/api/user/<userID>/LoginData/<loginID>', methods=['GET', 'PUT', 'DELETE'])
@@ -98,6 +94,27 @@ def singIn():
 @app.route('/api/Note', methods=['PUT'])
 def updateNote():
     return 'OK', 200
+
+
+##DEBUG
+@app.route('/api/Populate', methods=['GET'])
+def pop():
+    populate_database.populate(db)
+    return 'Database Populated with 20 accounts!', 200
+
+
+##DEBUG
+@app.route('/api/AllData', methods=['GET'])
+def allData():
+    response = db.accounts.find()
+    return json_util.dumps(response), 200
+
+
+##DEBUG
+@app.route('/api/DropDb', methods=['GET'])
+def dropDb():
+    db.accounts.drop()
+    return 'Database cleared!', 200
 
 
 if __name__ == '__main__':
