@@ -10,7 +10,8 @@ import populate_database
 
 # pogchamp
 print("Podaj hasło do bazy danych: ")
-password = S3Connection(os.environ['DATABASE_PASSWORD'])
+s3 = S3Connection(os.environ['DATABASE_PASSWORD'])
+password = s3.
 mongoClient = MongoClient("mongodb+srv://passwordserver:" + password + "@passwordmanager-jxmmz.mongodb.net/test?retryWrites=true&w=majority",
     connect=False)
 ##mongoClient = None
