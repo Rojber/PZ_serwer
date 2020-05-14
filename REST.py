@@ -6,7 +6,7 @@ from bson import json_util, ObjectId
 import json
 import populate_database
 
-mongoClient = MongoClient("mongodb+srv://passwordserver:pogchamp@passwordmanager-jxmmz.mongodb.net/test?retryWrites=true&w=majority", connect=False)
+mongoClient = None
 db = mongoClient.passwordManager
 app = flask.Flask(__name__)
 app.config["DEBUG"] = True
@@ -118,4 +118,10 @@ def dropDb():
 
 
 if __name__ == '__main__':
+    #pogchamp
+    print("Podaj hasło do bazy danych: ")
+    password = str(input())
+    mongoClient = MongoClient(
+        "mongodb+srv://passwordserver:" + password + "@passwordmanager-jxmmz.mongodb.net/test?retryWrites=true&w=majority",
+        connect=False)
     app.run()
