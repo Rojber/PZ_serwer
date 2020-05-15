@@ -4,19 +4,11 @@ from flask import request
 from pymongo import MongoClient
 from pprint import pprint
 from bson import json_util, ObjectId
-from boto.s3.connection import S3Connection, Bucket, Key
 import json
 import populate_database
 
-# pogchamp
-print("Podaj hasło do bazy danych: ")
-s3 = S3Connection(os.environ['DATABASE_PASSWORD'])
-b = Bucket(s3)
-k = Key(b)
-password = k.key
-mongoClient = MongoClient("mongodb+srv://passwordserver:" + password + "@passwordmanager-jxmmz.mongodb.net/test?retryWrites=true&w=majority",
+mongoClient = MongoClient("mongodb+srv://passwordserver:pogchamp@passwordmanager-jxmmz.mongodb.net/test?retryWrites=true&w=majority",
     connect=False)
-##mongoClient = None
 db = mongoClient.passwordManager
 app = flask.Flask(__name__)
 app.config["DEBUG"] = True
