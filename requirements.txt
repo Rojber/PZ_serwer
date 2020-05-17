@@ -1,10 +1,15 @@
+boto==2.49.0
+cffi==1.14.0
 click==7.1.1
+cryptography==2.9.2
 dnspython==1.16.0
 Flask==1.1.2
 itsdangerous==1.1.0
 Jinja2==2.11.1
 MarkupSafe==1.1.1
+pycparser==2.20
 pymongo==3.10.1
+pymongocrypt==1.0.0
+six==1.14.0
 uWSGI==2.0.18
 Werkzeug==1.0.1
-boto~=2.49.0
