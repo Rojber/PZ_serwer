@@ -180,8 +180,7 @@ def manageLoginData(userID, loginID):
 def postLoginData(userID):
     js = request.json
     if 'passwordStrength' not in js:
-        # TODO ZMIEN NA FUNKCJE LICZACA SILE HASŁA
-        js['passwordStrength'] = 3
+        js['passwordStrength'] = measurePasswordStrength(js['password'])
     logindat = {
         "_id": ObjectId(),
         'site': js['site'],
@@ -234,28 +233,9 @@ def getBackup(userID):
 def getPasswordStrength():
     js = request.json
     password = js['password']
-    strength = 5
-    if (len(password) < 7):
-        strength -= 5
+    js['passwordStrength'] = measurePasswordStrength(password)
 
-    if not re.search("[a-z]", password):
-        strength -= 1
-
-    if not re.search("[A-Z]", password):
-        strength -= 1
-
-    if not re.search("[0-9]", password):
-        strength -= 1
-
-    if not re.search("[!#$%&()*+,-./<=>?@\[\]^_{|}~]", password):
-        strength -= 1
-
-    if strength < 0:
-        strength = 0
-
-    js['passwordStrength'] = strength
-
-    ##TODO sprawdzanie siły hasła (haveibeenpwnd tez?)
+    ##TODO haveibeenpwnd
     return json_util.dumps(js), 200
 
 
@@ -341,6 +321,29 @@ def allData():
 def dropDb():
     db.accounts.drop()
     return 'Database cleared!', 200
+
+
+def measurePasswordStrength(password):
+    strength = 5
+    if (len(password) < 7):
+        strength -= 5
+
+    if not re.search("[a-z]", password):
+        strength -= 1
+
+    if not re.search("[A-Z]", password):
+        strength -= 1
+
+    if not re.search("[0-9]", password):
+        strength -= 1
+
+    if not re.search("[!#$%&()*+,-./<=>?@\[\]^_{|}~]", password):
+        strength -= 1
+
+    if strength < 0:
+        strength = 0
+
+    return strength
 
 
 if __name__ == '__main__':
