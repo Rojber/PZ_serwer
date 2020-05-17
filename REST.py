@@ -29,6 +29,10 @@ client_encryption = csfle_helper.client_encryption
 public_server_key, private_server_key = auxiliaryFuncs.getRSAKeys()
 server_decryptor = auxiliaryFuncs.getDecryptor(private_server_key)
 export_public_server_key = auxiliaryFuncs.exportKey(public_server_key)
+temp = auxiliaryFuncs.getencryptedLogin(public_server_key)
+"""jss = server_decryptor.decrypt(temp)
+jss = json_util.loads(jss.decode())
+print(jss['password'])"""
 
 
 @app.route('/api/user/<userID>/LoginData/<loginID>', methods=['GET', 'PUT', 'DELETE'])
@@ -210,9 +214,28 @@ def signUp():
 
 @app.route('/api/SignIn', methods=['POST'])
 def singIn():
-    js = request.json
-
-    return 'OK', 200
+    result = None
+    js = base64.b64decode(request.get_data())
+    print(js)
+    print(type(js))
+    print(type(temp))
+    if temp == js:
+        print('HMMMMMMMMMMMMMM')
+    js = server_decryptor.decrypt(js)
+    js = json_util.loads(js.decode('utf-8'))
+    response = db.accounts.find_one(
+        {
+            'login': js['login'],
+        },
+        {
+            'password': 1
+        }
+    )
+    if response['password'] == js['password']:
+        result = 'LOGGED IN'
+    else:
+        result = 'NOT LOGGED IN!'
+    return result, 200
 
 
 @app.route('/api/GetPublicKey', methods=['GET'])
