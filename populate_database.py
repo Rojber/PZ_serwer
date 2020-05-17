@@ -9,7 +9,7 @@ dbb.reviewe.drop()
 dbb.accounts.drop()
 """
 
-def populate(db):
+def populate(db, client_encryption, data_key_id):
     emails = ['wocolok826@mailboxt.com','bahipa4662@itiomail.com','petok85924@mailmyrss.com', 'vasem29004@itiomail.com', 'vapif21218@ualmail.com']
     logins = ['wocolok','bahipa4','petok8','vase','vapif','tribert']
     passwords = ['g!AWS{=MA,2kk4Sn', ';,*af=<}%@5,N[+g', '?#w4}PU3A^$XqyC%', '4CZ<9_s_z]FeMn', '+_g8h=AyYgtmU@2Q', 'Tc!D#u6R45vQH4gt', 'KcqPUQ@T#w2Uw%+!']
@@ -26,16 +26,16 @@ def populate(db):
                 {
                     "_id": ObjectId(),
                     'site': sites[randint(0, (len(sites) - 1))],
-                    'login': loginsLD[randint(0, (len(loginsLD) - 1))],
-                    'password': passwordsLD[randint(0, (len(passwordsLD) - 1))],
+                    'login': client_encryption.encrypt(loginsLD[randint(0, (len(loginsLD) - 1))], "AEAD_AES_256_CBC_HMAC_SHA_512-Random", data_key_id),
+                    'password': client_encryption.encrypt(passwordsLD[randint(0, (len(passwordsLD) - 1))], "AEAD_AES_256_CBC_HMAC_SHA_512-Random", data_key_id),
                     'passwordStrength': randint(1, 5),
                     'note': notesLD[randint(0, (len(notesLD) - 1))]
                 },
                 {
                     "_id": ObjectId(),
                     'site': sites[randint(0, (len(sites) - 1))],
-                    'login': loginsLD[randint(0, (len(loginsLD) - 1))],
-                    'password': passwordsLD[randint(0, (len(passwordsLD) - 1))],
+                    'login': client_encryption.encrypt(loginsLD[randint(0, (len(loginsLD) - 1))], "AEAD_AES_256_CBC_HMAC_SHA_512-Random", data_key_id),
+                    'password': client_encryption.encrypt(passwordsLD[randint(0, (len(passwordsLD) - 1))], "AEAD_AES_256_CBC_HMAC_SHA_512-Random", data_key_id),
                     'passwordStrength': randint(1,5),
                     'note': notesLD[randint(0, (len(notesLD) - 1))]
                 }
