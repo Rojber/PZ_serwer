@@ -100,7 +100,8 @@ class CsfleHelper:
                 mongocryptd_bypass_spawn=self.mongocryptd_bypass_spawn,
                 mongocryptd_spawn_path=self.mongocryptd_spawn_path,
                 bypass_auto_encryption=True,
-                schema_map=schema)
+                schema_map=schema),
+            connect=False
         )
 
     def create_json_schema(self, data_key):
