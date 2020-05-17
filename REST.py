@@ -1,17 +1,16 @@
 import string
 import flask
-import re
 from flask import request
 from bson import json_util, ObjectId, Binary
 import base64
 import secrets
-import populate_database, mongoCli
+import populate_database, mongoCli, auxiliaryFuncs
 
 app = flask.Flask(__name__)
 app.config["DEBUG"] = True
 
+#---TWORZENIE KLIENTA MONGODB Z CLIENT SIDE FIELD LEVEL ENCRYPTION
 local_master_key = mongoCli.read_master_key()
-
 kms_providers = {
     "local": {
         "key": local_master_key,
@@ -26,98 +25,10 @@ mongoClient = csfle_helper.get_csfle_enabled_client(schema)
 db = mongoClient.passwordManager
 client_encryption = csfle_helper.client_encryption
 
-"""
-CONNECTION_STRING = "mongodb+srv://passwordserver:pogchamp@passwordmanager-jxmmz.mongodb.net/test?retryWrites=true&w=majority"
-key_vault_namespace = "encryption.__keyVault"
-key_vault_db = "encryption"
-key_vault_coll = "__keyVault"
-mongoClient = MongoClient(CONNECTION_STRING,
-                          connect=False)
-path = "master-key.txt"
-
-
-
-file_bytes = os.urandom(96)
-with open(path, "wb") as f:
-    f.write(file_bytes)
-
-
-with open(path, "rb") as f:
-    local_master_key = f.read()
-
-kms_providers = {
-    "local": {
-        "key": local_master_key
-    },
-}
-
-client_encryption = ClientEncryption(
-    kms_providers,  # pass in the kms_providers variable from the previous step
-    key_vault_namespace,
-    mongoClient,
-    CodecOptions(uuid_representation=STANDARD)
-)
-
-def create_data_encryption_key():
-    data_key_id = client_encryption.create_data_key("local")
-    uuid_data_key_id = UUID(bytes=data_key_id)
-    base_64_data_key_id = base64.b64encode(data_key_id)
-    print("DataKeyId [UUID]: ", str(uuid_data_key_id))
-    print("DataKeyId [base64]: ", base_64_data_key_id)
-    print(data_key_id)
-    return data_key_id
-
-data_key_id = base64.b64encode(b'\xd3j\xab\xb4[\x9fBS\x85\x9a\xd1~\xa3[QY')
-
-key_vault = mongoClient[key_vault_db][key_vault_coll]
-
-# Pass in the data_key_id created in previous section
-key = key_vault.find_one({"_id": [Binary(base64.b64decode(data_key_id), OLD_UUID_SUBTYPE)]})
-pprint(key)
-
-
-def json_schema_creator(key_id):
-    return {
-        'bsonType': 'object',
-        'encryptMetadata': {
-            'keyId': [Binary(base64.b64decode(data_key_id), OLD_UUID_SUBTYPE)]
-        },
-        'properties': {
-            'logindata': {
-                'bsonType': "object",
-                'properties': {
-                    'password': {
-                        'encrypt': {
-                            'bsonType': "string",
-                            'algorithm': "AEAD_AES_256_CBC_HMAC_SHA_512-Random"
-                        }
-                    },
-                    'login': {
-                        'encrypt': {
-                            'bsonType': "string",
-                            'algorithm': "AEAD_AES_256_CBC_HMAC_SHA_512-Random"
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-
-json_schema = json_schema_creator(data_key_id)
-accounts_schema = {
-    "passwordManager.accounts": json_schema
-}
-
-fle_opts = AutoEncryptionOpts(
-    kms_providers,
-    key_vault_namespace,
-    schema_map=accounts_schema,
-    bypass_auto_encryption=True,
-)
-mongoClient = MongoClient(CONNECTION_STRING, auto_encryption_opts=fle_opts)
-db = mongoClient.passwordManager
-"""
+#---GENERACJA KLUCZY RSA SERWERA I DEKRYPTORA
+public_server_key, private_server_key = auxiliaryFuncs.getRSAKeys()
+server_decryptor = auxiliaryFuncs.getDecryptor(private_server_key)
+export_public_server_key = auxiliaryFuncs.exportKey(public_server_key)
 
 
 @app.route('/api/user/<userID>/LoginData/<loginID>', methods=['GET', 'PUT', 'DELETE'])
@@ -138,6 +49,7 @@ def manageLoginData(userID, loginID):
         return json_util.dumps(response), 200
     if request.method == 'PUT':
         js = request.json
+        js['passwordStrength'] = auxiliaryFuncs.measurePasswordStrength(js['password'])
         logindat = {
             "_id": ObjectId(loginID),
             'site': js['site'],
@@ -180,7 +92,7 @@ def manageLoginData(userID, loginID):
 def postLoginData(userID):
     js = request.json
     if 'passwordStrength' not in js:
-        js['passwordStrength'] = measurePasswordStrength(js['password'])
+        js['passwordStrength'] = auxiliaryFuncs.measurePasswordStrength(js['password'])
     logindat = {
         "_id": ObjectId(),
         'site': js['site'],
@@ -233,7 +145,7 @@ def getBackup(userID):
 def getPasswordStrength():
     js = request.json
     password = js['password']
-    js['passwordStrength'] = measurePasswordStrength(password)
+    js['passwordStrength'] = auxiliaryFuncs.measurePasswordStrength(password)
 
     ##TODO haveibeenpwnd
     return json_util.dumps(js), 200
@@ -298,8 +210,14 @@ def signUp():
 
 @app.route('/api/SignIn', methods=['POST'])
 def singIn():
-    # TODO OGARNIJ LOGOWANIE
+    js = request.json
+
     return 'OK', 200
+
+
+@app.route('/api/GetPublicKey', methods=['GET'])
+def getKey():
+    return export_public_server_key, 200
 
 
 ##DEBUG
@@ -321,29 +239,6 @@ def allData():
 def dropDb():
     db.accounts.drop()
     return 'Database cleared!', 200
-
-
-def measurePasswordStrength(password):
-    strength = 5
-    if (len(password) < 7):
-        strength -= 5
-
-    if not re.search("[a-z]", password):
-        strength -= 1
-
-    if not re.search("[A-Z]", password):
-        strength -= 1
-
-    if not re.search("[0-9]", password):
-        strength -= 1
-
-    if not re.search("[!#$%&()*+,-./<=>?@\[\]^_{|}~]", password):
-        strength -= 1
-
-    if strength < 0:
-        strength = 0
-
-    return strength
 
 
 if __name__ == '__main__':
