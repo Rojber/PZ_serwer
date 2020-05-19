@@ -1,7 +1,8 @@
 import base64
 import re
 from Crypto.PublicKey import RSA
-from Crypto.Cipher import PKCS1_OAEP
+from Crypto.Random import get_random_bytes
+from Crypto.Cipher import PKCS1_OAEP, AES
 import binascii
 import secrets
 from bson import json_util
@@ -58,8 +59,8 @@ def measurePasswordStrength(password):
 def getencryptedLogin(pubKey):
     server_encryptor = getEncryptor(pubKey)
     js = {
-        'login': 'petok8',
-        'password': '4CZ<9_s_z]FeMn'
+        'login': 'vapif',
+        'password': '+_g8h=AyYgtmU@2Q'
     }
     js = server_encryptor.encrypt(str.encode(json_util.dumps(js), 'utf-8'))
     print(base64.b64encode(js))

@@ -43,7 +43,7 @@ def manageLoginData(loginID):
         }
     )
     if session is None:
-        return 'WRONG TOKEN', 200
+        return json_util.dumps({'response': 'WRONG TOKEN'}), 200
     time_delta = (datetime.utcnow() - session['last_used'])
     total_seconds = time_delta.total_seconds()
     if (total_seconds / 60) < 240:
@@ -54,7 +54,7 @@ def manageLoginData(loginID):
                 'token': token
             }, True
         )
-        return 'SESSION EXPIRED', 200
+        return json_util.dumps({'response': 'SESSION EXPIRED'}), 200
 
     if request.method == 'GET':
         response = db.accounts.find_one(
@@ -92,7 +92,7 @@ def manageLoginData(loginID):
                     }
             }
         )
-        return json_util.dumps(logindat), 200
+        return json_util.dumps({'response': 'OK'}), 200
     if request.method == 'DELETE':
         db.accounts.find_one_and_update(
             {
@@ -108,7 +108,7 @@ def manageLoginData(loginID):
                     }
             }
         )
-        return 'OK', 200
+        return json_util.dumps({'response': 'OK'}), 200
 
 
 @app.route('/api/LoginData', methods=['POST'])
@@ -121,7 +121,7 @@ def postLoginData():
         }
     )
     if session is None:
-        return 'WRONG TOKEN', 200
+        return json_util.dumps({'response': 'WRONG TOKEN'}), 200
     time_delta = (datetime.utcnow() - session['last_used'])
     total_seconds = time_delta.total_seconds()
     if (total_seconds / 60) < 240:
@@ -132,7 +132,7 @@ def postLoginData():
                 'token': token
             }, True
         )
-        return 'SESSION EXPIRED', 200
+        return json_util.dumps({'response': 'SESSION EXPIRED'}), 200
 
     js = request.json
     if 'passwordStrength' not in js:
@@ -153,7 +153,7 @@ def postLoginData():
             }
         }
     )
-    return json_util.dumps(logindat), 200
+    return json_util.dumps({'response': 'OK'}), 200
 
 
 @app.route('/api/AllSites', methods=['GET'])
@@ -166,7 +166,7 @@ def getAllSites():
         }
     )
     if session is None:
-        return 'WRONG TOKEN', 200
+        return json_util.dumps({'response': 'WRONG TOKEN'}), 200
     time_delta = (datetime.utcnow() - session['last_used'])
     total_seconds = time_delta.total_seconds()
     if (total_seconds / 60) < 240:
@@ -177,7 +177,7 @@ def getAllSites():
                 'token': token
             }, True
         )
-        return 'SESSION EXPIRED', 200
+        return json_util.dumps({'response': 'SESSION EXPIRED'}), 200
 
     response = db.accounts.find_one(
         {
@@ -203,7 +203,7 @@ def getBackup():
         }
     )
     if session is None:
-        return 'WRONG TOKEN', 200
+        return json_util.dumps({'response': 'WRONG TOKEN'}), 200
     time_delta = (datetime.utcnow() - session['last_used'])
     total_seconds = time_delta.total_seconds()
     if (total_seconds / 60) < 240:
@@ -214,7 +214,7 @@ def getBackup():
                 'token': token
             }, True
         )
-        return 'SESSION EXPIRED', 200
+        return json_util.dumps({'response': 'SESSION EXPIRED'}), 200
 
     response = db.accounts.find_one(
         {
@@ -242,7 +242,7 @@ def getPasswordStrength():
 def getStrongPassword(PasswordLen):
     chars = string.ascii_letters + string.digits + "!#$%&()*+,-./<=>?@[]^_{|}~"
     passw = ''.join(secrets.choice(chars) for i in range(int(PasswordLen)))
-    return str(passw), 200
+    return json_util.dumps({'response': str(passw)}), 200
 
 
 @app.route('/api/User', methods=['GET', 'PUT', 'DELETE'])
@@ -255,7 +255,7 @@ def manageAccount():
         }
     )
     if session is None:
-        return 'WRONG TOKEN', 200
+        return json_util.dumps({'response': 'WRONG TOKEN'}), 200
     time_delta = (datetime.utcnow() - session['last_used'])
     total_seconds = time_delta.total_seconds()
     if  (total_seconds / 60) < 240:
@@ -266,7 +266,7 @@ def manageAccount():
                 'token': token
             }, True
         )
-        return 'SESSION EXPIRED', 200
+        return json_util.dumps({'response': 'SESSION EXPIRED'}), 200
 
     if request.method == 'GET':
         response = db.accounts.find_one(
@@ -297,14 +297,14 @@ def manageAccount():
                     }
             }
         )
-        return 'OK', 200
+        return json_util.dumps({'response': 'OK'}), 200
     if request.method == 'DELETE':
         db.accounts.remove(
             {
                 '_id': ObjectId(userID)
             }, True
         )
-        return 'OK', 200
+        return json_util.dumps({'response': 'OK'}), 200
 
 
 @app.route('/api/SignUp', methods=['POST'])
@@ -316,14 +316,14 @@ def signUp():
         }
     )
     if check is not None:
-        return 'LOGIN ALREADY USED', 200
+        return json_util.dumps({'response': 'LOGIN ALREADY USED'}), 200
     check = db.accounts.find_one(
         {
             'email': js['email']
         }
     )
     if check is not None:
-        return 'EMAIL ALREADY USED', 200
+        return json_util.dumps({'response': 'EMAIL ALREADY USED'}), 200
     account = {
         'email': client_encryption.encrypt(js['email'], "AEAD_AES_256_CBC_HMAC_SHA_512-Deterministic", data_key_id),
         'login': client_encryption.encrypt(js['login'], "AEAD_AES_256_CBC_HMAC_SHA_512-Deterministic", data_key_id),
@@ -332,7 +332,7 @@ def signUp():
     }
     result = db.accounts.insert_one(account)
     account['_id'] = ObjectId(result.inserted_id)
-    return 'ACCOUNT CREATED', 200 #json_util.dumps(account), 200
+    return json_util.dumps({'response': 'OK'}), 200 #json_util.dumps(account), 200
 
 
 @app.route('/api/SignIn', methods=['POST'])
@@ -373,8 +373,12 @@ def singIn():
             token = session['token']
             result = token
     else:
-        result = 'NOT LOGGED IN!'
-    return result, 200
+        result = 'NOT LOGGED IN'
+
+    resp = {
+        'response': result
+    }
+    return json_util.dumps(resp), 200
 
 
 @app.route('/api/GetPublicKey', methods=['GET'])
