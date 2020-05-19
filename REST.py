@@ -1,4 +1,5 @@
 import string
+from datetime import datetime, timedelta
 import flask
 from flask import request
 from bson import json_util, ObjectId, Binary
@@ -30,13 +31,31 @@ public_server_key, private_server_key = auxiliaryFuncs.getRSAKeys()
 server_decryptor = auxiliaryFuncs.getDecryptor(private_server_key)
 export_public_server_key = auxiliaryFuncs.exportKey(public_server_key)
 temp = auxiliaryFuncs.getencryptedLogin(public_server_key)
-"""jss = server_decryptor.decrypt(temp)
-jss = json_util.loads(jss.decode())
-print(jss['password'])"""
 
 
-@app.route('/api/user/<userID>/LoginData/<loginID>', methods=['GET', 'PUT', 'DELETE'])
-def manageLoginData(userID, loginID):
+@app.route('/api/LoginData/<loginID>', methods=['GET', 'PUT', 'DELETE'])
+def manageLoginData(loginID):
+    userID = None
+    token = request.headers['token']
+    session = db.sessions.find_one(
+        {
+            'token': token
+        }
+    )
+    if session is None:
+        return 'WRONG TOKEN', 200
+    time_delta = (datetime.utcnow() - session['last_used'])
+    total_seconds = time_delta.total_seconds()
+    if (total_seconds / 60) < 240:
+        userID = session['_id']
+    else:
+        db.sessions.remove(
+            {
+                'token': token
+            }, True
+        )
+        return 'SESSION EXPIRED', 200
+
     if request.method == 'GET':
         response = db.accounts.find_one(
             {
@@ -92,8 +111,29 @@ def manageLoginData(userID, loginID):
         return 'OK', 200
 
 
-@app.route('/api/user/<userID>/LoginData', methods=['POST'])
-def postLoginData(userID):
+@app.route('/api/LoginData', methods=['POST'])
+def postLoginData():
+    userID = None
+    token = request.headers['token']
+    session = db.sessions.find_one(
+        {
+            'token': token
+        }
+    )
+    if session is None:
+        return 'WRONG TOKEN', 200
+    time_delta = (datetime.utcnow() - session['last_used'])
+    total_seconds = time_delta.total_seconds()
+    if (total_seconds / 60) < 240:
+        userID = session['_id']
+    else:
+        db.sessions.remove(
+            {
+                'token': token
+            }, True
+        )
+        return 'SESSION EXPIRED', 200
+
     js = request.json
     if 'passwordStrength' not in js:
         js['passwordStrength'] = auxiliaryFuncs.measurePasswordStrength(js['password'])
@@ -116,8 +156,29 @@ def postLoginData(userID):
     return json_util.dumps(logindat), 200
 
 
-@app.route('/api/user/<userID>/AllSites', methods=['GET'])
-def getAllSites(userID):
+@app.route('/api/AllSites', methods=['GET'])
+def getAllSites():
+    userID = None
+    token = request.headers['token']
+    session = db.sessions.find_one(
+        {
+            'token': token
+        }
+    )
+    if session is None:
+        return 'WRONG TOKEN', 200
+    time_delta = (datetime.utcnow() - session['last_used'])
+    total_seconds = time_delta.total_seconds()
+    if (total_seconds / 60) < 240:
+        userID = session['_id']
+    else:
+        db.sessions.remove(
+            {
+                'token': token
+            }, True
+        )
+        return 'SESSION EXPIRED', 200
+
     response = db.accounts.find_one(
         {
             '_id': ObjectId(userID)
@@ -132,8 +193,29 @@ def getAllSites(userID):
     return json_util.dumps(response['logindata']), 200
 
 
-@app.route('/api/user/<userID>/Backup', methods=['GET'])
-def getBackup(userID):
+@app.route('/api/Backup', methods=['GET'])
+def getBackup():
+    userID = None
+    token = request.headers['token']
+    session = db.sessions.find_one(
+        {
+            'token': token
+        }
+    )
+    if session is None:
+        return 'WRONG TOKEN', 200
+    time_delta = (datetime.utcnow() - session['last_used'])
+    total_seconds = time_delta.total_seconds()
+    if (total_seconds / 60) < 240:
+        userID = session['_id']
+    else:
+        db.sessions.remove(
+            {
+                'token': token
+            }, True
+        )
+        return 'SESSION EXPIRED', 200
+
     response = db.accounts.find_one(
         {
             '_id': ObjectId(userID)
@@ -149,10 +231,11 @@ def getBackup(userID):
 def getPasswordStrength():
     js = request.json
     password = js['password']
-    js['passwordStrength'] = auxiliaryFuncs.measurePasswordStrength(password)
-
+    resp = {
+        'passwordStrength': auxiliaryFuncs.measurePasswordStrength(password)
+    }
     ##TODO haveibeenpwnd
-    return json_util.dumps(js), 200
+    return json_util.dumps(resp), 200
 
 
 @app.route('/api/StrongPassword/<PasswordLen>', methods=['GET'])
@@ -162,8 +245,39 @@ def getStrongPassword(PasswordLen):
     return str(passw), 200
 
 
-@app.route('/api/user/<userID>', methods=['PUT', 'DELETE'])
-def manageAccount(userID):
+@app.route('/api/User', methods=['GET', 'PUT', 'DELETE'])
+def manageAccount():
+    userID = None
+    token = request.headers['token']
+    session = db.sessions.find_one(
+        {
+            'token': token
+        }
+    )
+    if session is None:
+        return 'WRONG TOKEN', 200
+    time_delta = (datetime.utcnow() - session['last_used'])
+    total_seconds = time_delta.total_seconds()
+    if  (total_seconds / 60) < 240:
+        userID = session['_id']
+    else:
+        db.sessions.remove(
+            {
+                'token': token
+            }, True
+        )
+        return 'SESSION EXPIRED', 200
+    if request.method == 'GET':
+        response = db.accounts.find_one(
+            {
+                '_id': ObjectId(userID)
+            },
+            {
+                'login': 1,
+                'email': 1
+            }
+        )
+        return json_util.dumps(response), 200
     if request.method == 'PUT':
         js = request.json
         logindat = db.accounts.find_one_and_update(
@@ -182,13 +296,7 @@ def manageAccount(userID):
                     }
             }
         )
-        logindat['email'] = client_encryption.encrypt(js['email'], "AEAD_AES_256_CBC_HMAC_SHA_512-Deterministic",
-                                                      data_key_id),
-        logindat['login'] = client_encryption.encrypt(js['login'], "AEAD_AES_256_CBC_HMAC_SHA_512-Deterministic",
-                                                      data_key_id),
-        logindat['password'] = client_encryption.encrypt(js['password'], "AEAD_AES_256_CBC_HMAC_SHA_512-Random",
-                                                         data_key_id),
-        return json_util.dumps(logindat), 200
+        return 'OK', 200
     if request.method == 'DELETE':
         db.accounts.remove(
             {
@@ -201,6 +309,20 @@ def manageAccount(userID):
 @app.route('/api/SignUp', methods=['POST'])
 def signUp():
     js = request.json
+    check = db.accounts.find_one(
+        {
+            'login': js['login']
+        }
+    )
+    if check is not None:
+        return 'LOGIN ALREADY USED', 200
+    check = db.accounts.find_one(
+        {
+            'email': js['email']
+        }
+    )
+    if check is not None:
+        return 'EMAIL ALREADY USED', 200
     account = {
         'email': client_encryption.encrypt(js['email'], "AEAD_AES_256_CBC_HMAC_SHA_512-Deterministic", data_key_id),
         'login': client_encryption.encrypt(js['login'], "AEAD_AES_256_CBC_HMAC_SHA_512-Deterministic", data_key_id),
@@ -209,18 +331,16 @@ def signUp():
     }
     result = db.accounts.insert_one(account)
     account['_id'] = ObjectId(result.inserted_id)
-    return json_util.dumps(account), 200
+    return 'ACCOUNT CREATED', 200 #json_util.dumps(account), 200
 
 
 @app.route('/api/SignIn', methods=['POST'])
 def singIn():
     result = None
     js = base64.b64decode(request.get_data())
-    print(js)
-    print(type(js))
-    print(type(temp))
-    if temp == js:
-        print('HMMMMMMMMMMMMMM')
+    #print(js)
+    #print(type(js))
+    #print(type(temp))
     js = server_decryptor.decrypt(js)
     js = json_util.loads(js.decode('utf-8'))
     response = db.accounts.find_one(
@@ -228,11 +348,29 @@ def singIn():
             'login': js['login'],
         },
         {
-            'password': 1
+            'password': 1,
+            '_id': 1
         }
     )
     if response['password'] == js['password']:
-        result = 'LOGGED IN'
+        session = db.sessions.find_one(
+            {
+                '_id': response['_id']
+            }
+        )
+        if session is None:
+            token = auxiliaryFuncs.getToken()
+            session = {
+                '_id': response['_id'],
+                'token': token,
+                'last_used': datetime.utcnow()
+            }
+
+            db.sessions.insert_one(session)
+            result = token
+        else:
+            token = session['token']
+            result = token
     else:
         result = 'NOT LOGGED IN!'
     return result, 200

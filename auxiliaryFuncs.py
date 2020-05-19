@@ -3,8 +3,12 @@ import re
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
 import binascii
-
+import secrets
 from bson import json_util
+
+
+def getToken():
+    return secrets.token_hex(24)
 
 
 def getDecryptor(key):
@@ -57,7 +61,6 @@ def getencryptedLogin(pubKey):
         'login': 'petok8',
         'password': '4CZ<9_s_z]FeMn'
     }
-    key = 'td6d876dtdtd4d'
     js = server_encryptor.encrypt(str.encode(json_util.dumps(js), 'utf-8'))
     print(base64.b64encode(js))
     return base64.b64encode(js)
