@@ -267,6 +267,7 @@ def manageAccount():
             }, True
         )
         return 'SESSION EXPIRED', 200
+
     if request.method == 'GET':
         response = db.accounts.find_one(
             {
