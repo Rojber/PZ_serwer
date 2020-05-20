@@ -19,9 +19,9 @@ def populate(db, client_encryption, data_key_id):
     notesLD = ['Fliptune', 'Linkbridge', 'Linkbuzz', 'Janyx', 'Eabox', 'Browseblab', 'Chatterpoint', 'Blogspan', 'WikidoWikido', 'Tazzy', 'Miboo']
     for x in range(1, 20):
         account = {
-            'email' : emails[randint(0, (len(emails)-1))],
-            'login' : logins[randint(0, (len(logins)-1))],
-            'password': passwords[randint(0, (len(passwords) - 1))],
+            'email': client_encryption.encrypt(emails[randint(0, (len(emails)-1))], "AEAD_AES_256_CBC_HMAC_SHA_512-Deterministic", data_key_id),
+            'login': client_encryption.encrypt(logins[randint(0, (len(logins)-1))], "AEAD_AES_256_CBC_HMAC_SHA_512-Deterministic", data_key_id),
+            'password': client_encryption.encrypt(passwords[randint(0, (len(passwords) - 1))], "AEAD_AES_256_CBC_HMAC_SHA_512-Random", data_key_id),
             'logindata' : [
                 {
                     "_id": ObjectId(),
