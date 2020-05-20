@@ -1,4 +1,5 @@
 import base64
+import json
 import re
 from Crypto.PublicKey import RSA
 from Crypto.Random import get_random_bytes
@@ -66,6 +67,32 @@ def getencryptedLogin(pubKey):
     print(base64.b64encode(js))
     return base64.b64encode(js)
 
+
+def encryptAES(text, RSAencryptor):
+    AESkey = get_random_bytes(16)
+
+    encryptedAESkey = RSAencryptor.encrypt(AESkey)
+
+    AESencryptor = AES.new(AESkey, AES.MODE_EAX)
+    cipherText, tag = AESencryptor.encrypt_and_digest(text.encode("utf-8"))
+
+    result = {
+        'nonce': base64.b64encode(AESencryptor.nonce).decode('utf-8'),
+        'cipherText': base64.b64encode(cipherText).decode('utf-8'),
+        'tag': base64.b64encode(tag).decode('utf-8'),
+        'encryptedKey': base64.b64encode(encryptedAESkey).decode('utf-8'),
+    }
+    return result
+
+
+def decryptAES(js, RSAdecryptor):
+    #b64 = json.loads(js)
+    b64 = js
+    json_k = ['nonce', 'encryptedKey', 'cipherText', 'tag']
+    jv = {k: base64.b64decode(b64[k]) for k in json_k}
+    cipher = AES.new(RSAdecryptor.decrypt(jv['encryptedKey']), AES.MODE_EAX, nonce=jv['nonce'])
+    plaintext = cipher.decrypt_and_verify(jv['cipherText'], jv['tag'])
+    print('Decrypted text: ' + plaintext.decode('utf-8'))
 
 if __name__ == '__main__':
     pubKey, keyPair = getRSAKeys()

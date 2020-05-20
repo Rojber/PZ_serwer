@@ -7,6 +7,8 @@ import base64
 import secrets
 import populate_database, mongoCli, auxiliaryFuncs
 
+import pprint
+
 app = flask.Flask(__name__)
 app.config["DEBUG"] = True
 
@@ -29,6 +31,7 @@ client_encryption = csfle_helper.client_encryption
 #---GENERACJA KLUCZY RSA SERWERA I DEKRYPTORA
 public_server_key, private_server_key = auxiliaryFuncs.getRSAKeys()
 server_decryptor = auxiliaryFuncs.getDecryptor(private_server_key)
+server_encryptor = auxiliaryFuncs.getEncryptor(public_server_key)
 export_public_server_key = auxiliaryFuncs.exportKey(public_server_key)
 temp = auxiliaryFuncs.getencryptedLogin(public_server_key)
 
@@ -190,6 +193,8 @@ def getAllSites():
             'email': 0
         }
     )
+    #js = auxiliaryFuncs.encryptAES(json_util.dumps(response['logindata']), server_encryptor)
+    #auxiliaryFuncs.decryptAES(js, server_decryptor)
     return json_util.dumps(response['logindata']), 200
 
 
@@ -312,18 +317,19 @@ def signUp():
     js = request.json
     check = db.accounts.find_one(
         {
-            'login': js['login']
+            'login': client_encryption.encrypt(js['login'], "AEAD_AES_256_CBC_HMAC_SHA_512-Deterministic", data_key_id)
         }
     )
     if check is not None:
         return json_util.dumps({'response': 'LOGIN ALREADY USED'}), 200
     check = db.accounts.find_one(
         {
-            'email': js['email']
+            'email': client_encryption.encrypt(js['email'], "AEAD_AES_256_CBC_HMAC_SHA_512-Deterministic", data_key_id)
         }
     )
     if check is not None:
         return json_util.dumps({'response': 'EMAIL ALREADY USED'}), 200
+
     account = {
         'email': client_encryption.encrypt(js['email'], "AEAD_AES_256_CBC_HMAC_SHA_512-Deterministic", data_key_id),
         'login': client_encryption.encrypt(js['login'], "AEAD_AES_256_CBC_HMAC_SHA_512-Deterministic", data_key_id),
@@ -331,8 +337,9 @@ def signUp():
         'logindata': []
     }
     result = db.accounts.insert_one(account)
+    print(result.inserted_id)
     account['_id'] = ObjectId(result.inserted_id)
-    return json_util.dumps({'response': 'OK'}), 200 #json_util.dumps(account), 200
+    return json_util.dumps({'response': 'OK'}), 200
 
 
 @app.route('/api/SignIn', methods=['POST'])
@@ -346,7 +353,7 @@ def singIn():
     js = json_util.loads(js.decode('utf-8'))
     response = db.accounts.find_one(
         {
-            'login': js['login'],
+            'login': client_encryption.encrypt(js['login'], "AEAD_AES_256_CBC_HMAC_SHA_512-Deterministic", data_key_id),
         },
         {
             'password': 1,
