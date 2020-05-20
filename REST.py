@@ -7,7 +7,6 @@ import base64
 import secrets
 import populate_database, mongoCli, auxiliaryFuncs
 
-import pprint
 
 app = flask.Flask(__name__)
 app.config["DEBUG"] = True
