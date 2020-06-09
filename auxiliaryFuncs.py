@@ -1,12 +1,12 @@
 import base64
-import json
+import requests
 import re
 from Crypto.PublicKey import RSA
 from Crypto.Random import get_random_bytes
 from Crypto.Cipher import PKCS1_OAEP, AES
-import binascii
 import secrets
 from bson import json_util
+import hashlib
 
 
 def getToken():
@@ -57,22 +57,12 @@ def measurePasswordStrength(password):
     return strength
 
 
-def getencryptedLogin(pubKey):
-    server_encryptor = getEncryptor(pubKey)
-    js = {
-        'login': 'vapif',
-        'password': '+_g8h=AyYgtmU@2Q'
-    }
-    js = server_encryptor.encrypt(str.encode(json_util.dumps(js), 'utf-8'))
-    print(base64.b64encode(js))
-    return base64.b64encode(js)
-
-
-def encryptAES(text, RSAencryptor):
+def encryptAES(js, userKeyPEM):
+    text = json_util.dumps(js)
+    print('\n\n\n\nKEY PEM: ' + str(userKeyPEM))
+    RSAencryptor = PKCS1_OAEP.new(RSA.importKey(userKeyPEM))
     AESkey = get_random_bytes(16)
-
     encryptedAESkey = RSAencryptor.encrypt(AESkey)
-
     AESencryptor = AES.new(AESkey, AES.MODE_EAX)
     cipherText, tag = AESencryptor.encrypt_and_digest(text.encode("utf-8"))
 
@@ -86,13 +76,25 @@ def encryptAES(text, RSAencryptor):
 
 
 def decryptAES(js, RSAdecryptor):
-    #b64 = json.loads(js)
-    b64 = js
     json_k = ['nonce', 'encryptedKey', 'cipherText', 'tag']
-    jv = {k: base64.b64decode(b64[k]) for k in json_k}
+    jv = {k: base64.b64decode(js[k]) for k in json_k}
     cipher = AES.new(RSAdecryptor.decrypt(jv['encryptedKey']), AES.MODE_EAX, nonce=jv['nonce'])
     plaintext = cipher.decrypt_and_verify(jv['cipherText'], jv['tag'])
     print('Decrypted text: ' + plaintext.decode('utf-8'))
+    return json_util.loads(plaintext.decode('utf-8'))
+
+
+def hibpIsPwned(password):
+    shaPassword = hashlib.sha1(password.encode('utf-8'))
+    req = requests.get('https://api.pwnedpasswords.com/range/' + str(shaPassword.hexdigest())[:5].upper())
+    print(str(shaPassword.hexdigest())[:5].upper())
+    result = req.text.find(str(shaPassword.hexdigest())[5:].upper())
+    print(str(shaPassword.hexdigest())[5:].upper())
+    if result > 0:
+        return True
+    else:
+        return False
+
 
 if __name__ == '__main__':
     pubKey, keyPair = getRSAKeys()

@@ -1,12 +1,15 @@
-import string
-from datetime import datetime, timedelta
-import flask
-from flask import request
-from bson import json_util, ObjectId, Binary
 import base64
+import pprint
 import secrets
-import populate_database, mongoCli, auxiliaryFuncs
-
+import string
+from datetime import datetime
+import flask
+from bson import json_util, ObjectId, Binary
+from flask import request
+import auxiliaryFuncs
+import tokenization
+import mongoCli
+import populate_database
 
 app = flask.Flask(__name__)
 app.config["DEBUG"] = True
@@ -32,51 +35,91 @@ public_server_key, private_server_key = auxiliaryFuncs.getRSAKeys()
 server_decryptor = auxiliaryFuncs.getDecryptor(private_server_key)
 server_encryptor = auxiliaryFuncs.getEncryptor(public_server_key)
 export_public_server_key = auxiliaryFuncs.exportKey(public_server_key)
-temp = auxiliaryFuncs.getencryptedLogin(public_server_key)
+#temp = auxiliaryFuncs.getencryptedLogin(public_server_key)
 
 
 @app.route('/api/LoginData/<loginID>', methods=['GET', 'PUT', 'DELETE'])
 def manageLoginData(loginID):
-    userID = None
-    token = request.headers['token']
-    session = db.sessions.find_one(
-        {
-            'token': token
-        }
-    )
-    if session is None:
-        return json_util.dumps({'response': 'WRONG TOKEN'}), 200
-    time_delta = (datetime.utcnow() - session['last_used'])
-    total_seconds = time_delta.total_seconds()
-    if (total_seconds / 60) < 240:
-        userID = session['_id']
-    else:
-        db.sessions.remove(
-            {
-                'token': token
-            }, True
-        )
-        return json_util.dumps({'response': 'SESSION EXPIRED'}), 200
+    try:
+        outcome, userID, userKeyPEM = tokenization.checkToken(request.headers['token'], db)
+        if outcome == 1:
+            return json_util.dumps({'response': 'WRONG TOKEN'}), 401
+        if outcome == 2:
+            return json_util.dumps({'response': 'SESSION EXPIRED'}), 401
 
-    if request.method == 'GET':
-        response = db.accounts.find_one(
-            {
-                '_id': ObjectId(userID),
-            },
-            {
-                'logindata': 1
+        if request.method == 'GET':
+            response = db.accounts.find_one(
+                {
+                    '_id': ObjectId(userID),
+                },
+                {
+                    'logindata': 1
+                }
+            )
+            for tup in response['logindata']:
+                if tup['_id'] == ObjectId(loginID):
+                    response = tup
+                    break
+            return json_util.dumps(auxiliaryFuncs.encryptAES(response, userKeyPEM)), 200
+
+        if request.method == 'PUT':
+            js = request.json
+            js['passwordStrength'] = auxiliaryFuncs.measurePasswordStrength(js['password'])
+            logindat = {
+                "_id": ObjectId(loginID),
+                'site': js['site'],
+                'login': client_encryption.encrypt(js['login'], "AEAD_AES_256_CBC_HMAC_SHA_512-Random", data_key_id),
+                'password': client_encryption.encrypt(js['password'], "AEAD_AES_256_CBC_HMAC_SHA_512-Random", data_key_id),
+                'passwordStrength': js['passwordStrength'],
+                'note': js['note']
             }
-        )
-        for tup in response['logindata']:
-            if tup['_id'] == ObjectId(loginID):
-                response = tup
-                break
-        return json_util.dumps(response), 200
-    if request.method == 'PUT':
+            db.accounts.find_one_and_update(
+                {
+                    '_id': ObjectId(userID), 'logindata._id': ObjectId(loginID)
+                },
+                {
+                    '$set':
+                        {
+                            "logindata.$": logindat
+                        }
+                }
+            )
+            return json_util.dumps(auxiliaryFuncs.encryptAES({'response': 'OK'}, userKeyPEM)), 201
+
+        if request.method == 'DELETE':
+            db.accounts.find_one_and_update(
+                {
+                    '_id': ObjectId(userID)
+                },
+                {
+                    '$pull':
+                        {
+                            'logindata':
+                                {
+                                    '_id': ObjectId(loginID)
+                                }
+                        }
+                }
+            )
+            return json_util.dumps(auxiliaryFuncs.encryptAES({'response': 'OK'}, userKeyPEM)), 200
+    except:
+        return json_util.dumps({'response': 'INTERNAL SERVER ERROR'}), 500
+
+
+@app.route('/api/LoginData', methods=['POST'])
+def postLoginData():
+    try:
+        outcome, userID, userKeyPEM = tokenization.checkToken(request.headers['token'], db)
+        if outcome == 1:
+            return json_util.dumps({'response': 'WRONG TOKEN'}), 401
+        if outcome == 2:
+            return json_util.dumps({'response': 'SESSION EXPIRED'}), 401
+
         js = request.json
-        js['passwordStrength'] = auxiliaryFuncs.measurePasswordStrength(js['password'])
+        if 'passwordStrength' not in js:
+            js['passwordStrength'] = auxiliaryFuncs.measurePasswordStrength(js['password'])
         logindat = {
-            "_id": ObjectId(loginID),
+            "_id": ObjectId(),
             'site': js['site'],
             'login': client_encryption.encrypt(js['login'], "AEAD_AES_256_CBC_HMAC_SHA_512-Random", data_key_id),
             'password': client_encryption.encrypt(js['password'], "AEAD_AES_256_CBC_HMAC_SHA_512-Random", data_key_id),
@@ -84,307 +127,265 @@ def manageLoginData(loginID):
             'note': js['note']
         }
         db.accounts.find_one_and_update(
-            {
-                '_id': ObjectId(userID), 'logindata._id': ObjectId(loginID)
-            },
-            {
-                '$set':
-                    {
-                        "logindata.$": logindat
-                    }
+            {'_id': ObjectId(userID)},
+            {'$push':
+                {
+                    'logindata': logindat
+                }
             }
         )
-        return json_util.dumps({'response': 'OK'}), 200
-    if request.method == 'DELETE':
-        db.accounts.find_one_and_update(
-            {
-                '_id': ObjectId(userID)
-            },
-            {
-                '$pull':
-                    {
-                        'logindata':
-                            {
-                                '_id': ObjectId(loginID)
-                            }
-                    }
-            }
-        )
-        return json_util.dumps({'response': 'OK'}), 200
-
-
-@app.route('/api/LoginData', methods=['POST'])
-def postLoginData():
-    userID = None
-    token = request.headers['token']
-    session = db.sessions.find_one(
-        {
-            'token': token
-        }
-    )
-    if session is None:
-        return json_util.dumps({'response': 'WRONG TOKEN'}), 200
-    time_delta = (datetime.utcnow() - session['last_used'])
-    total_seconds = time_delta.total_seconds()
-    if (total_seconds / 60) < 240:
-        userID = session['_id']
-    else:
-        db.sessions.remove(
-            {
-                'token': token
-            }, True
-        )
-        return json_util.dumps({'response': 'SESSION EXPIRED'}), 200
-
-    js = request.json
-    if 'passwordStrength' not in js:
-        js['passwordStrength'] = auxiliaryFuncs.measurePasswordStrength(js['password'])
-    logindat = {
-        "_id": ObjectId(),
-        'site': js['site'],
-        'login': client_encryption.encrypt(js['login'], "AEAD_AES_256_CBC_HMAC_SHA_512-Random", data_key_id),
-        'password': client_encryption.encrypt(js['password'], "AEAD_AES_256_CBC_HMAC_SHA_512-Random", data_key_id),
-        'passwordStrength': js['passwordStrength'],
-        'note': js['note']
-    }
-    db.accounts.find_one_and_update(
-        {'_id': ObjectId(userID)},
-        {'$push':
-            {
-                'logindata': logindat
-            }
-        }
-    )
-    return json_util.dumps({'response': 'OK'}), 200
+        return json_util.dumps(auxiliaryFuncs.encryptAES({'response': 'OK'}, userKeyPEM)), 201
+    except:
+        return json_util.dumps({'response': 'INTERNAL SERVER ERROR'}), 500
 
 
 @app.route('/api/AllSites', methods=['GET'])
 def getAllSites():
-    userID = None
-    token = request.headers['token']
-    session = db.sessions.find_one(
-        {
-            'token': token
-        }
-    )
-    if session is None:
-        return json_util.dumps({'response': 'WRONG TOKEN'}), 200
-    time_delta = (datetime.utcnow() - session['last_used'])
-    total_seconds = time_delta.total_seconds()
-    if (total_seconds / 60) < 240:
-        userID = session['_id']
-    else:
-        db.sessions.remove(
-            {
-                'token': token
-            }, True
-        )
-        return json_util.dumps({'response': 'SESSION EXPIRED'}), 200
-
-    response = db.accounts.find_one(
-        {
-            '_id': ObjectId(userID)
-        },
-        {
-            'logindata.password': 0,
-            'login': 0,
-            'password': 0,
-            'email': 0
-        }
-    )
-    #js = auxiliaryFuncs.encryptAES(json_util.dumps(response['logindata']), server_encryptor)
-    #auxiliaryFuncs.decryptAES(js, server_decryptor)
-    return json_util.dumps(response['logindata']), 200
-
-
-@app.route('/api/Backup', methods=['GET'])
-def getBackup():
-    userID = None
-    token = request.headers['token']
-    session = db.sessions.find_one(
-        {
-            'token': token
-        }
-    )
-    if session is None:
-        return json_util.dumps({'response': 'WRONG TOKEN'}), 200
-    time_delta = (datetime.utcnow() - session['last_used'])
-    total_seconds = time_delta.total_seconds()
-    if (total_seconds / 60) < 240:
-        userID = session['_id']
-    else:
-        db.sessions.remove(
-            {
-                'token': token
-            }, True
-        )
-        return json_util.dumps({'response': 'SESSION EXPIRED'}), 200
-
-    response = db.accounts.find_one(
-        {
-            '_id': ObjectId(userID)
-        },
-        {
-            'logindata': 1
-        }
-    )
-    return json_util.dumps(response['logindata']), 200
-
-
-@app.route('/api/PasswordStrength', methods=['POST'])
-def getPasswordStrength():
-    js = request.json
-    password = js['password']
-    resp = {
-        'passwordStrength': auxiliaryFuncs.measurePasswordStrength(password)
-    }
-    ##TODO haveibeenpwnd
-    return json_util.dumps(resp), 200
-
-
-@app.route('/api/StrongPassword/<PasswordLen>', methods=['GET'])
-def getStrongPassword(PasswordLen):
-    chars = string.ascii_letters + string.digits + "!#$%&()*+,-./<=>?@[]^_{|}~"
-    passw = ''.join(secrets.choice(chars) for i in range(int(PasswordLen)))
-    return json_util.dumps({'response': str(passw)}), 200
-
-
-@app.route('/api/User', methods=['GET', 'PUT', 'DELETE'])
-def manageAccount():
-    userID = None
-    token = request.headers['token']
-    session = db.sessions.find_one(
-        {
-            'token': token
-        }
-    )
-    if session is None:
-        return json_util.dumps({'response': 'WRONG TOKEN'}), 200
-    time_delta = (datetime.utcnow() - session['last_used'])
-    total_seconds = time_delta.total_seconds()
-    if  (total_seconds / 60) < 240:
-        userID = session['_id']
-    else:
-        db.sessions.remove(
-            {
-                'token': token
-            }, True
-        )
-        return json_util.dumps({'response': 'SESSION EXPIRED'}), 200
-
-    if request.method == 'GET':
+    try:
+        outcome, userID, userKeyPEM = tokenization.checkToken(request.headers['token'], db)
+        if outcome == 1:
+            return json_util.dumps({'response': 'WRONG TOKEN'}), 401
+        if outcome == 2:
+            return json_util.dumps({'response': 'SESSION EXPIRED'}), 401
         response = db.accounts.find_one(
             {
                 '_id': ObjectId(userID)
             },
             {
-                'login': 1,
-                'email': 1
+                'logindata.password': 0,
+                'login': 0,
+                'password': 0,
+                'email': 0
             }
         )
-        return json_util.dumps(response), 200
-    if request.method == 'PUT':
-        js = request.json
-        logindat = db.accounts.find_one_and_update(
+        return json_util.dumps(auxiliaryFuncs.encryptAES(response['logindata'], userKeyPEM)), 200
+    except:
+        return json_util.dumps({'response': 'INTERNAL SERVER ERROR'}), 500
+
+
+@app.route('/api/Backup', methods=['GET'])
+def getBackup():
+    try:
+        outcome, userID, userKeyPEM = tokenization.checkToken(request.headers['token'], db)
+        if outcome == 1:
+            return json_util.dumps({'response': 'WRONG TOKEN'}), 401
+        if outcome == 2:
+            return json_util.dumps({'response': 'SESSION EXPIRED'}), 401
+        response = db.accounts.find_one(
             {
                 '_id': ObjectId(userID)
             },
             {
-                '$set':
-                    {
-                        'email': client_encryption.encrypt(js['email'], "AEAD_AES_256_CBC_HMAC_SHA_512-Deterministic",
-                                                           data_key_id),
-                        'login': client_encryption.encrypt(js['login'], "AEAD_AES_256_CBC_HMAC_SHA_512-Deterministic",
-                                                           data_key_id),
-                        'password': client_encryption.encrypt(js['password'], "AEAD_AES_256_CBC_HMAC_SHA_512-Random",
-                                                              data_key_id)
-                    }
+                'logindata': 1
             }
         )
-        return json_util.dumps({'response': 'OK'}), 200
-    if request.method == 'DELETE':
-        db.accounts.remove(
-            {
-                '_id': ObjectId(userID)
-            }, True
-        )
-        return json_util.dumps({'response': 'OK'}), 200
+        return json_util.dumps(auxiliaryFuncs.encryptAES(response['logindata'], userKeyPEM)), 200
+    except:
+        return json_util.dumps({'response': 'INTERNAL SERVER ERROR'}), 500
+
+
+@app.route('/api/User', methods=['GET', 'PUT', 'DELETE'])
+def manageAccount():
+    try:
+        outcome, userID, userKeyPEM = tokenization.checkToken(request.headers['token'], db)
+        if outcome == 1:
+            return json_util.dumps({'response': 'WRONG TOKEN'}), 401
+        if outcome == 2:
+            return json_util.dumps({'response': 'SESSION EXPIRED'}), 401
+
+        if request.method == 'GET':
+            response = db.accounts.find_one(
+                {
+                    '_id': ObjectId(userID)
+                },
+                {
+                    'login': 1,
+                    'email': 1
+                }
+            )
+            return json_util.dumps(auxiliaryFuncs.encryptAES(response, userKeyPEM)), 200
+        if request.method == 'PUT':
+            js = request.json
+            js = auxiliaryFuncs.decryptAES(js, server_decryptor)
+            logindat = db.accounts.find_one_and_update(
+                {
+                    '_id': ObjectId(userID)
+                },
+                {
+                    '$set':
+                        {
+                            'email': client_encryption.encrypt(js['email'], "AEAD_AES_256_CBC_HMAC_SHA_512-Deterministic",
+                                                               data_key_id),
+                            'login': client_encryption.encrypt(js['login'], "AEAD_AES_256_CBC_HMAC_SHA_512-Deterministic",
+                                                               data_key_id),
+                            'password': client_encryption.encrypt(js['password'], "AEAD_AES_256_CBC_HMAC_SHA_512-Random",
+                                                                  data_key_id)
+                        }
+                }
+            )
+            return json_util.dumps(auxiliaryFuncs.encryptAES({'response': 'OK'}, userKeyPEM)), 201
+        if request.method == 'DELETE':
+            db.accounts.remove(
+                {
+                    '_id': ObjectId(userID)
+                }, True
+            )
+            return json_util.dumps(auxiliaryFuncs.encryptAES({'response': 'OK'}, userKeyPEM)), 200
+    except:
+        return json_util.dumps({'response': 'INTERNAL SERVER ERROR'}), 500
 
 
 @app.route('/api/SignUp', methods=['POST'])
 def signUp():
-    js = request.json
-    check = db.accounts.find_one(
-        {
-            'login': client_encryption.encrypt(js['login'], "AEAD_AES_256_CBC_HMAC_SHA_512-Deterministic", data_key_id)
-        }
-    )
-    if check is not None:
-        return json_util.dumps({'response': 'LOGIN ALREADY USED'}), 200
-    check = db.accounts.find_one(
-        {
-            'email': client_encryption.encrypt(js['email'], "AEAD_AES_256_CBC_HMAC_SHA_512-Deterministic", data_key_id)
-        }
-    )
-    if check is not None:
-        return json_util.dumps({'response': 'EMAIL ALREADY USED'}), 200
+    try:
+        #TYLKO RSA
+        js = base64.b64decode(request.get_data())
+        js = server_decryptor.decrypt(js)
+        js = json_util.loads(js.decode('utf-8'))
+        pprint.pprint(js)
 
-    account = {
-        'email': client_encryption.encrypt(js['email'], "AEAD_AES_256_CBC_HMAC_SHA_512-Deterministic", data_key_id),
-        'login': client_encryption.encrypt(js['login'], "AEAD_AES_256_CBC_HMAC_SHA_512-Deterministic", data_key_id),
-        'password': client_encryption.encrypt(js['password'], "AEAD_AES_256_CBC_HMAC_SHA_512-Random", data_key_id),
-        'logindata': []
-    }
-    result = db.accounts.insert_one(account)
-    print(result.inserted_id)
-    account['_id'] = ObjectId(result.inserted_id)
-    return json_util.dumps({'response': 'OK'}), 200
+        check = db.accounts.find_one(
+            {
+                'login': client_encryption.encrypt(js['login'], "AEAD_AES_256_CBC_HMAC_SHA_512-Deterministic", data_key_id)
+            }
+        )
+        if check is not None:
+            return json_util.dumps({'response': 'LOGIN ALREADY USED'}), 400
+
+        check = db.accounts.find_one(
+            {
+                'email': client_encryption.encrypt(js['email'], "AEAD_AES_256_CBC_HMAC_SHA_512-Deterministic", data_key_id)
+            }
+        )
+        if check is not None:
+            return json_util.dumps({'response': 'EMAIL ALREADY USED'}), 400
+
+        account = {
+            'email': client_encryption.encrypt(js['email'], "AEAD_AES_256_CBC_HMAC_SHA_512-Deterministic", data_key_id),
+            'login': client_encryption.encrypt(js['login'], "AEAD_AES_256_CBC_HMAC_SHA_512-Deterministic", data_key_id),
+            'password': client_encryption.encrypt(js['password'], "AEAD_AES_256_CBC_HMAC_SHA_512-Random", data_key_id),
+            'logindata': []
+        }
+        result = db.accounts.insert_one(account)
+        return json_util.dumps({'response': 'OK'}), 201
+    except:
+        return json_util.dumps({'response': 'INTERNAL SERVER ERROR'}), 500
 
 
 @app.route('/api/SignIn', methods=['POST'])
 def singIn():
-    result = None
-    js = base64.b64decode(request.get_data())
-    #print(js)
-    #print(type(js))
-    #print(type(temp))
-    js = server_decryptor.decrypt(js)
-    js = json_util.loads(js.decode('utf-8'))
-    response = db.accounts.find_one(
-        {
-            'login': client_encryption.encrypt(js['login'], "AEAD_AES_256_CBC_HMAC_SHA_512-Deterministic", data_key_id),
-        },
-        {
-            'password': 1,
-            '_id': 1
-        }
-    )
-    if response['password'] == js['password']:
-        session = db.sessions.find_one(
+    try:
+        result = None
+        #TYLKO RSA
+        json = request.json
+        js = base64.b64decode(json['data'].encode('utf-8'))
+        js = server_decryptor.decrypt(js)
+        js = json_util.loads(js.decode('utf-8'))
+
+        response = db.accounts.find_one(
             {
-                '_id': response['_id']
+                'login': client_encryption.encrypt(js['login'], "AEAD_AES_256_CBC_HMAC_SHA_512-Deterministic", data_key_id),
+            },
+            {
+                'password': 1,
+                '_id': 1
             }
         )
-        if session is None:
+        if response['password'] == js['password']:
+            session = db.sessions.find_one(
+                {
+                    '_id': response['_id']
+                }
+            )
             token = auxiliaryFuncs.getToken()
-            session = {
-                '_id': response['_id'],
-                'token': token,
-                'last_used': datetime.utcnow()
-            }
-
-            db.sessions.insert_one(session)
-            result = token
+            if session is None:
+                session = {
+                    '_id': response['_id'],
+                    'token': token,
+                    'last_used': datetime.utcnow(),
+                    'public_key_PEM': json['public_key_PEM']
+                }
+                db.sessions.insert_one(session)
+                result = token
+            else:
+                db.sessions.find_one_and_update(
+                    {
+                        'token': session['token']
+                    },
+                    {
+                        '$set':
+                            {
+                                'token': token,
+                                'last_used': datetime.utcnow(),
+                                'public_key_PEM': json['public_key_PEM']
+                            }
+                    }
+                )
+                result = token
         else:
-            token = session['token']
-            result = token
-    else:
-        result = 'NOT LOGGED IN'
+            return json_util.dumps({'response': 'NOT LOGGED IN'}), 401
 
-    resp = {
-        'response': result
-    }
-    return json_util.dumps(resp), 200
+        resp = {
+            'response': result
+        }
+        return json_util.dumps(auxiliaryFuncs.encryptAES(resp, json['public_key_PEM'])), 200
+    except:
+        return json_util.dumps({'response': 'INTERNAL SERVER ERROR'}), 500
+
+
+@app.route('/api/PasswordStrength', methods=['POST'])
+def getPasswordStrength():
+    try:
+        #TYLKO RSA
+        js = base64.b64decode(request.get_data())
+        js = server_decryptor.decrypt(js)
+        js = json_util.loads(js.decode('utf-8'))
+        pprint.pprint(js)
+
+        password = js['password']
+        resp = {
+            'passwordStrength': auxiliaryFuncs.measurePasswordStrength(password)
+        }
+        return json_util.dumps(auxiliaryFuncs.encryptAES(resp, userKeyPEM)), 200
+    except:
+        return json_util.dumps({'response': 'INTERNAL SERVER ERROR'}), 500
+
+
+@app.route('/api/StrongPassword/<PasswordLen>', methods=['GET'])
+def getStrongPassword(PasswordLen):
+    try:
+        outcome, _, userKeyPEM = tokenization.checkToken(request.headers['token'], db)
+        if outcome == 1:
+            return json_util.dumps({'response': 'WRONG TOKEN'}), 401
+        if outcome == 2:
+            return json_util.dumps({'response': 'SESSION EXPIRED'}), 401
+
+        chars = string.ascii_letters + string.digits + "!#$%&()*+,-./<=>?@[]^_{|}~"
+        passw = ''.join(secrets.choice(chars) for i in range(int(PasswordLen)))
+        return json_util.dumps(auxiliaryFuncs.encryptAES({'response': str(passw)}, userKeyPEM)), 200
+    except:
+        return json_util.dumps({'response': 'INTERNAL SERVER ERROR'}), 500
+
+
+@app.route('/api/PasswordStrength/Hibp', methods=['POST'])
+def passwordCheckHIBP():
+    try:
+        outcome, _, userKeyPEM = tokenization.checkToken(request.headers['token'], db)
+        if outcome == 1:
+            return json_util.dumps({'response': 'WRONG TOKEN'}), 401
+        if outcome == 2:
+            return json_util.dumps({'response': 'SESSION EXPIRED'}), 401
+
+        js = request.json
+        js = auxiliaryFuncs.decryptAES(js, server_decryptor)
+
+        password = js['password']
+        if auxiliaryFuncs.hibpIsPwned(password) is True:
+            return json_util.dumps(auxiliaryFuncs.encryptAES({'response': 'PASSWORD LEAKED'}, userKeyPEM)), 200
+        else:
+            return json_util.dumps(auxiliaryFuncs.encryptAES({'response': 'OK'}, userKeyPEM)), 200
+    except:
+        return json_util.dumps({'response': 'INTERNAL SERVER ERROR'}), 500
 
 
 @app.route('/api/GetPublicKey', methods=['GET'])
