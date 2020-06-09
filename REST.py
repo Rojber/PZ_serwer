@@ -346,7 +346,7 @@ def getPasswordStrength():
         resp = {
             'passwordStrength': auxiliaryFuncs.measurePasswordStrength(password)
         }
-        return json_util.dumps(auxiliaryFuncs.encryptAES(resp, userKeyPEM)), 200
+        return json_util.dumps(resp), 200
     except:
         return json_util.dumps({'response': 'INTERNAL SERVER ERROR'}), 500
 
