@@ -57,6 +57,7 @@ def measurePasswordStrength(password):
     return strength
 
 
+"""
 def encryptAES(js, userKeyPEM):
     text = json_util.dumps(js)
     print('\n\n\n\nKEY PEM: ' + str(userKeyPEM))
@@ -73,8 +74,29 @@ def encryptAES(js, userKeyPEM):
         'encryptedKey': base64.b64encode(encryptedAESkey).decode('utf-8'),
     }
     return result
+"""
 
 
+def encryptAES(js, userKeyPEM):
+    text = json_util.dumps(js)
+    print('\n\n\n\nKEY PEM: ' + str(userKeyPEM))
+    RSAencryptor = PKCS1_OAEP.new(RSA.importKey(userKeyPEM))
+    AESkey = get_random_bytes(16)
+    nonce = get_random_bytes(12)
+    encryptedAESkey = RSAencryptor.encrypt(AESkey)
+    AESencryptor = AES.new(AESkey, AES.MODE_GCM, nonce=nonce)
+    cipherText, tag = AESencryptor.encrypt_and_digest(text.encode("utf-8"))
+
+    result = {
+        'nonce': base64.b64encode(AESencryptor.nonce).decode('utf-8'),
+        'cipherText': base64.b64encode(cipherText).decode('utf-8'),
+        'tag': base64.b64encode(tag).decode('utf-8'),
+        'encryptedKey': base64.b64encode(encryptedAESkey).decode('utf-8'),
+    }
+    return result
+
+
+"""
 def decryptAES(js, RSAdecryptor):
     json_k = ['nonce', 'encryptedKey', 'cipherText', 'tag']
     jv = {k: base64.b64decode(js[k]) for k in json_k}
@@ -82,6 +104,17 @@ def decryptAES(js, RSAdecryptor):
     plaintext = cipher.decrypt_and_verify(jv['cipherText'], jv['tag'])
     print('Decrypted text: ' + plaintext.decode('utf-8'))
     return json_util.loads(plaintext.decode('utf-8'))
+"""
+
+
+def decryptAES(js, RSAdecryptor):
+    json_k = ['nonce', 'encryptedKey', 'cipherText', 'tag']
+    jv = {k: base64.b64decode(js[k]) for k in json_k}
+    cipher = AES.new(RSAdecryptor.decrypt(jv['encryptedKey']), AES.MODE_GCM, nonce=jv['nonce'])
+    plaintext = cipher.decrypt_and_verify(jv['cipherText'], jv['tag'])
+    print('Decrypted text: ' + plaintext.decode('utf-8'))
+    return json_util.loads(plaintext.decode('utf-8'))
+
 
 
 def hibpIsPwned(password):
