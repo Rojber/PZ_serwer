@@ -6,8 +6,6 @@ from bson import json_util
 import auxiliaryFuncs
 import time
 from Crypto.PublicKey import RSA
-from Crypto.Random import get_random_bytes
-from Crypto.Cipher import PKCS1_OAEP, AES
 
 def print_request(request):
     print('------------------------------------')
