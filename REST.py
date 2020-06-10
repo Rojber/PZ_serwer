@@ -274,65 +274,67 @@ def signUp():
 
 @app.route('/api/SignIn', methods=['POST'])
 def singIn():
-    try:
-        result = None
-        #TYLKO RSA
-        json = request.json
-        pprint.pprint(json)
-        js = base64.b64decode(json['data'].encode('utf-8'))
-        js = server_decryptor.decrypt(js)
-        js = json_util.loads(js.decode('utf-8'))
-        pprint.pprint(js)
+    #try:
+    result = None
+    #TYLKO RSA
+    json = request.json
+    pprint.pprint(json)
+    js = base64.b64decode(json['data'].encode('utf-8'))
+    pprint.pprint(js)
+    js = server_decryptor.decrypt(js)
+    pprint.pprint(js)
+    js = json_util.loads(js.decode('utf-8'))
+    pprint.pprint(js)
 
-        response = db.accounts.find_one(
+    response = db.accounts.find_one(
+        {
+            'login': client_encryption.encrypt(js['login'], "AEAD_AES_256_CBC_HMAC_SHA_512-Deterministic", data_key_id),
+        },
+        {
+            'password': 1,
+            '_id': 1
+        }
+    )
+    if response['password'] == js['password']:
+        session = db.sessions.find_one(
             {
-                'login': client_encryption.encrypt(js['login'], "AEAD_AES_256_CBC_HMAC_SHA_512-Deterministic", data_key_id),
-            },
-            {
-                'password': 1,
-                '_id': 1
+                '_id': response['_id']
             }
         )
-        if response['password'] == js['password']:
-            session = db.sessions.find_one(
+        token = auxiliaryFuncs.getToken()
+        if session is None:
+            session = {
+                '_id': response['_id'],
+                'token': token,
+                'last_used': datetime.utcnow(),
+                'public_key_PEM': json['public_key_PEM']
+            }
+            db.sessions.insert_one(session)
+            result = token
+        else:
+            db.sessions.find_one_and_update(
                 {
-                    '_id': response['_id']
+                    'token': session['token']
+                },
+                {
+                    '$set':
+                        {
+                            'token': token,
+                            'last_used': datetime.utcnow(),
+                            'public_key_PEM': json['public_key_PEM']
+                        }
                 }
             )
-            token = auxiliaryFuncs.getToken()
-            if session is None:
-                session = {
-                    '_id': response['_id'],
-                    'token': token,
-                    'last_used': datetime.utcnow(),
-                    'public_key_PEM': json['public_key_PEM']
-                }
-                db.sessions.insert_one(session)
-                result = token
-            else:
-                db.sessions.find_one_and_update(
-                    {
-                        'token': session['token']
-                    },
-                    {
-                        '$set':
-                            {
-                                'token': token,
-                                'last_used': datetime.utcnow(),
-                                'public_key_PEM': json['public_key_PEM']
-                            }
-                    }
-                )
-                result = token
-        else:
-            return json_util.dumps({'response': 'NOT LOGGED IN'}), 401
+            result = token
+    else:
+        return json_util.dumps({'response': 'NOT LOGGED IN'}), 401
 
-        resp = {
-            'response': result
-        }
-        return json_util.dumps(auxiliaryFuncs.encryptAES(resp, json['public_key_PEM'])), 200
-    except:
-        return json_util.dumps({'response': 'INTERNAL SERVER ERROR'}), 500
+    resp = {
+        'response': result
+    }
+    return json_util.dumps(auxiliaryFuncs.encryptAES(resp, json['public_key_PEM'])), 200
+    #except:
+    #    return json_util.dumps({'response': 'INTERNAL SERVER ERROR'}), 500
 
 
 @app.route('/api/PasswordStrength', methods=['POST'])
