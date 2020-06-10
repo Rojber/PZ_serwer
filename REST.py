@@ -277,7 +277,7 @@ def singIn():
     try:
         result = None
         #TYLKO RSA
-        json = request.get_json(force=True)
+        json = request.json
         pprint.pprint(json)
         js = base64.b64decode(json['data'].encode('utf-8'))
         js = server_decryptor.decrypt(js)
