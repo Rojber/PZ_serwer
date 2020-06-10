@@ -82,7 +82,7 @@ def encryptAES(js, userKeyPEM):
     print('\n\n\n\nKEY PEM: ' + str(userKeyPEM))
     RSAencryptor = PKCS1_OAEP.new(RSA.importKey(userKeyPEM))
     AESkey = get_random_bytes(16)
-    nonce = get_random_bytes(12)
+    nonce = get_random_bytes(16)
     encryptedAESkey = RSAencryptor.encrypt(AESkey)
     AESencryptor = AES.new(AESkey, AES.MODE_GCM, nonce=nonce)
     cipherText, tag = AESencryptor.encrypt_and_digest(text.encode("utf-8"))
