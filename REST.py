@@ -278,7 +278,8 @@ def singIn():
     result = None
     #TYLKO RSA
     json = request.json
-    pprint.pprint(json)
+    pprint.pprint(json['data'])
+    print(type(json['data']))
     js = base64.b64decode(json['data'].encode('utf-8'))
     pprint.pprint(js)
     js = server_decryptor.decrypt(js)
