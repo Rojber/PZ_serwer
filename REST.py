@@ -333,7 +333,9 @@ def singIn():
     resp = {
         'response': result
     }
-    return json_util.dumps(auxiliaryFuncs.encryptAES(resp, json['public_key_PEM'])), 200
+    debug = auxiliaryFuncs.encryptAES(resp, json['public_key_PEM'])
+    pprint.pprint(debug)
+    return json_util.dumps(debug), 200
     #except:
     #    return json_util.dumps({'response': 'INTERNAL SERVER ERROR'}), 500
 
