@@ -87,11 +87,22 @@ def encryptAES(js, userKeyPEM):
     AESencryptor = AES.new(AESkey, AES.MODE_GCM, nonce=nonce)
     cipherText, tag = AESencryptor.encrypt_and_digest(text.encode("utf-8"))
 
+    print('noncebytes: ')
+    print(nonce)
+    print('ciphertextbytes: ')
+    print(cipherText)
+    print('tagbytes: ')
+    print(tag)
+    print('encryptedKeybytes: ')
+    print(encryptedAESkey)
+
     result = {
         'nonce': base64.b64encode(AESencryptor.nonce).decode('utf-8'),
         'cipherText': base64.b64encode(cipherText).decode('utf-8'),
         'tag': base64.b64encode(tag).decode('utf-8'),
         'encryptedKey': base64.b64encode(encryptedAESkey).decode('utf-8'),
+        'aesKey': base64.b64encode(AESkey).decode('utf-8'),
+        'userPEM': str(userKeyPEM)
     }
     return result
 
