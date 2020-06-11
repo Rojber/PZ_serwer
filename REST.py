@@ -158,7 +158,9 @@ def getAllSites():
                 'email': 0
             }
         )
-        return json_util.dumps(auxiliaryFuncs.encryptAES(response['logindata'], userKeyPEM)), 200
+        #resp = {}
+        resp = response['logindata']
+        return json_util.dumps(auxiliaryFuncs.encryptAES(resp, userKeyPEM)), 200
     except:
         return json_util.dumps({'response': 'INTERNAL SERVER ERROR'}), 500
 
