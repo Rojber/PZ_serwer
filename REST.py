@@ -64,6 +64,8 @@ def manageLoginData(loginID):
 
         if request.method == 'PUT':
             js = request.json
+            js = auxiliaryFuncs.decryptAES(js, server_decryptor)
+
             js['passwordStrength'] = auxiliaryFuncs.measurePasswordStrength(js['password'])
             logindat = {
                 "_id": ObjectId(loginID),
@@ -116,6 +118,8 @@ def postLoginData():
         return json_util.dumps({'response': 'SESSION EXPIRED'}), 401
 
     js = request.json
+    js = auxiliaryFuncs.decryptAES(js, server_decryptor)
+
     if 'passwordStrength' not in js:
         js['passwordStrength'] = auxiliaryFuncs.measurePasswordStrength(js['password'])
     logindat = {
