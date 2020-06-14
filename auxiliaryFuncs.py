@@ -121,7 +121,8 @@ def decryptAES(js, RSAdecryptor):
 def decryptAES(js, RSAdecryptor):
     json_k = ['nonce', 'encryptedKey', 'cipherText', 'tag']
     jv = {k: base64.b64decode(js[k]) for k in json_k}
-    cipher = AES.new(RSAdecryptor.decrypt(jv['encryptedKey']), AES.MODE_GCM, nonce=jv['nonce'])
+    aesKey = RSAdecryptor.decrypt(jv['encryptedKey'])
+    cipher = AES.new(aesKey, AES.MODE_GCM, nonce=jv['nonce'])
     plaintext = cipher.decrypt_and_verify(jv['cipherText'], jv['tag'])
     print('Decrypted text: ' + plaintext.decode('utf-8'))
     return json_util.loads(plaintext.decode('utf-8'))
