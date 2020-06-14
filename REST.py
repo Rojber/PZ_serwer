@@ -118,6 +118,7 @@ def postLoginData():
         return json_util.dumps({'response': 'SESSION EXPIRED'}), 401
 
     js = request.json
+    pprint.pprint(js)
     js = auxiliaryFuncs.decryptAES(js, server_decryptor)
 
     if 'passwordStrength' not in js:
