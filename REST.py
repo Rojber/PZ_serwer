@@ -247,6 +247,8 @@ def signUp():
     try:
         #TYLKO RSA
         json = request.json
+        pprint.pprint(json)
+
         js = base64.b64decode(json['data'].encode('utf-8'))
         js = server_decryptor.decrypt(js)
         js = json_util.loads(js.decode('utf-8'))
