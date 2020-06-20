@@ -277,6 +277,7 @@ def signUp():
             'password': client_encryption.encrypt(js['password'], "AEAD_AES_256_CBC_HMAC_SHA_512-Random", data_key_id),
             'logindata': []
         }
+        db.accounts.insert_one(account)
         return json_util.dumps({'response': 'OK'}), 201
     except:
         return json_util.dumps({'response': 'INTERNAL SERVER ERROR'}), 500
