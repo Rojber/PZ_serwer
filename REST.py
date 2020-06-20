@@ -306,6 +306,9 @@ def singIn():
                 '_id': 1
             }
         )
+        if response is None:
+            return json_util.dumps({'response': 'NOT LOGGED IN'}), 401
+
         if response['password'] == js['password']:
             session = db.sessions.find_one(
                 {
