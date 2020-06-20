@@ -110,38 +110,38 @@ def manageLoginData(loginID):
 
 @app.route('/api/LoginData', methods=['POST'])
 def postLoginData():
-    #try:
-    outcome, userID, userKeyPEM = tokenization.checkToken(request.headers['token'], db)
-    if outcome == 1:
-        return json_util.dumps({'response': 'WRONG TOKEN'}), 401
-    if outcome == 2:
-        return json_util.dumps({'response': 'SESSION EXPIRED'}), 401
+    try:
+        outcome, userID, userKeyPEM = tokenization.checkToken(request.headers['token'], db)
+        if outcome == 1:
+            return json_util.dumps({'response': 'WRONG TOKEN'}), 401
+        if outcome == 2:
+            return json_util.dumps({'response': 'SESSION EXPIRED'}), 401
 
-    js = request.json
-    pprint.pprint(js)
-    js = auxiliaryFuncs.decryptAES(js, server_decryptor)
+        js = request.json
+        pprint.pprint(js)
+        js = auxiliaryFuncs.decryptAES(js, server_decryptor)
 
-    if 'passwordStrength' not in js:
-        js['passwordStrength'] = auxiliaryFuncs.measurePasswordStrength(js['password'])
-    logindat = {
-        "_id": ObjectId(),
-        'site': js['site'],
-        'login': client_encryption.encrypt(js['login'], "AEAD_AES_256_CBC_HMAC_SHA_512-Random", data_key_id),
-        'password': client_encryption.encrypt(js['password'], "AEAD_AES_256_CBC_HMAC_SHA_512-Random", data_key_id),
-        'passwordStrength': js['passwordStrength'],
-        'note': js['note']
-    }
-    db.accounts.find_one_and_update(
-        {'_id': ObjectId(userID)},
-        {'$push':
-            {
-                'logindata': logindat
-            }
+        if 'passwordStrength' not in js:
+            js['passwordStrength'] = auxiliaryFuncs.measurePasswordStrength(js['password'])
+        logindat = {
+            "_id": ObjectId(),
+            'site': js['site'],
+            'login': client_encryption.encrypt(js['login'], "AEAD_AES_256_CBC_HMAC_SHA_512-Random", data_key_id),
+            'password': client_encryption.encrypt(js['password'], "AEAD_AES_256_CBC_HMAC_SHA_512-Random", data_key_id),
+            'passwordStrength': js['passwordStrength'],
+            'note': js['note']
         }
-    )
-    return json_util.dumps(auxiliaryFuncs.encryptAES({'response': 'OK'}, userKeyPEM)), 201
-    #except:
-    #    return json_util.dumps({'response': 'INTERNAL SERVER ERROR'}), 500
+        db.accounts.find_one_and_update(
+            {'_id': ObjectId(userID)},
+            {'$push':
+                {
+                    'logindata': logindat
+                }
+            }
+        )
+        return json_util.dumps(auxiliaryFuncs.encryptAES({'response': 'OK'}, userKeyPEM)), 201
+    except:
+        return json_util.dumps({'response': 'INTERNAL SERVER ERROR'}), 500
 
 
 @app.route('/api/AllSites', methods=['GET'])
@@ -256,6 +256,7 @@ def signUp():
                 'login': client_encryption.encrypt(js['login'], "AEAD_AES_256_CBC_HMAC_SHA_512-Deterministic", data_key_id)
             }
         )
+        pprint.pprint(check)
         if check is not None:
             return json_util.dumps({'response': 'LOGIN ALREADY USED'}), 400
 
