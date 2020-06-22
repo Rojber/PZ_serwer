@@ -79,7 +79,7 @@ def encryptAES(js, userKeyPEM):
 
 def encryptAES(js, userKeyPEM):
     text = json_util.dumps(js)
-    print('\n\n\n\nKEY PEM: ' + str(userKeyPEM))
+    #print('\n\n\n\nKEY PEM: ' + str(userKeyPEM))
     RSAencryptor = PKCS1_OAEP.new(RSA.importKey(userKeyPEM))
     AESkey = get_random_bytes(16)
     nonce = get_random_bytes(16)
@@ -87,14 +87,14 @@ def encryptAES(js, userKeyPEM):
     AESencryptor = AES.new(AESkey, AES.MODE_GCM, nonce=nonce)
     cipherText, tag = AESencryptor.encrypt_and_digest(text.encode("utf-8"))
 
-    print('noncebytes: ')
-    print(nonce)
-    print('ciphertextbytes: ')
-    print(cipherText)
-    print('tagbytes: ')
-    print(tag)
-    print('encryptedKeybytes: ')
-    print(encryptedAESkey)
+    #print('noncebytes: ')
+    #print(nonce)
+    #print('ciphertextbytes: ')
+    #print(cipherText)
+    #print('tagbytes: ')
+    #print(tag)
+    #print('encryptedKeybytes: ')
+    #print(encryptedAESkey)
 
     result = {
         'nonce': base64.b64encode(AESencryptor.nonce).decode('utf-8'),
@@ -124,7 +124,7 @@ def decryptAES(js, RSAdecryptor):
     aesKey = RSAdecryptor.decrypt(jv['encryptedKey'])
     cipher = AES.new(aesKey, AES.MODE_GCM, nonce=jv['nonce'])
     plaintext = cipher.decrypt_and_verify(jv['cipherText'], jv['tag'])
-    print('Decrypted text: ' + plaintext.decode('utf-8'))
+    #print('Decrypted text: ' + plaintext.decode('utf-8'))
     return json_util.loads(plaintext.decode('utf-8'))
 
 
@@ -132,9 +132,9 @@ def decryptAES(js, RSAdecryptor):
 def hibpIsPwned(password):
     shaPassword = hashlib.sha1(password.encode('utf-8'))
     req = requests.get('https://api.pwnedpasswords.com/range/' + str(shaPassword.hexdigest())[:5].upper())
-    print(str(shaPassword.hexdigest())[:5].upper())
+    #print(str(shaPassword.hexdigest())[:5].upper())
     result = req.text.find(str(shaPassword.hexdigest())[5:].upper())
-    print(str(shaPassword.hexdigest())[5:].upper())
+    #print(str(shaPassword.hexdigest())[5:].upper())
     if result > 0:
         return True
     else:
