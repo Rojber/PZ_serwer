@@ -357,8 +357,12 @@ def singIn():
 def getPasswordStrength():
     try:
         #TYLKO RSA
-        js = base64.b64decode(request.get_data())
+        json = request.json
+        pprint.pprint(json['data'])
+        js = base64.b64decode(json['data'].encode('utf-8'))
+        pprint.pprint(js)
         js = server_decryptor.decrypt(js)
+        pprint.pprint(js.decode('utf-8'))
         js = json_util.loads(js.decode('utf-8'))
         pprint.pprint(js)
 
