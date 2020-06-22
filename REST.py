@@ -64,7 +64,9 @@ def manageLoginData(loginID):
 
         if request.method == 'PUT':
             js = request.json
+            pprint.pprint(js)
             js = auxiliaryFuncs.decryptAES(js, server_decryptor)
+            pprint.pprint(js)
 
             js['passwordStrength'] = auxiliaryFuncs.measurePasswordStrength(js['password'])
             logindat = {
