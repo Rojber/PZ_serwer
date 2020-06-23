@@ -2,12 +2,6 @@ from pymongo import MongoClient
 from random import randint
 from bson.objectid import ObjectId
 
-"""
-mongoClient = MongoClient("mongodb://127.0.0.1:27017")
-dbb = mongoClient.test
-dbb.reviewe.drop()
-dbb.accounts.drop()
-"""
 
 def populate(db, client_encryption, data_key_id):
     emails = ['wocolok826@mailboxt.com','bahipa4662@itiomail.com','petok85924@mailmyrss.com', 'vasem29004@itiomail.com', 'vapif21218@ualmail.com']
@@ -48,8 +42,3 @@ def populate(db, client_encryption, data_key_id):
     #Step 5: Tell us that you are done
     print('Finished creating 20 accounts')
 
-"""
-populate(dbb)
-for c in dbb['accounts'].find():
-    pprint(c)
-"""

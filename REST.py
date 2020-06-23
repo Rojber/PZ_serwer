@@ -35,7 +35,6 @@ public_server_key, private_server_key = auxiliaryFuncs.getRSAKeys()
 server_decryptor = auxiliaryFuncs.getDecryptor(private_server_key)
 server_encryptor = auxiliaryFuncs.getEncryptor(public_server_key)
 export_public_server_key = auxiliaryFuncs.exportKey(public_server_key)
-#temp = auxiliaryFuncs.getencryptedLogin(public_server_key)
 
 
 @app.route('/api/LoginData/<loginID>', methods=['GET', 'PUT', 'DELETE'])
@@ -165,7 +164,6 @@ def getAllSites():
                 'email': 0
             }
         )
-        #resp = {}
         resp = response['logindata']
         return json_util.dumps(auxiliaryFuncs.encryptAES(resp, userKeyPEM)), 200
     except:

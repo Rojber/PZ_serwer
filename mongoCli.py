@@ -15,8 +15,6 @@ def read_master_key(path="master-key.txt"):
 
 
 class CsfleHelper:
-    """This is a helper class that aids in csfle implementation."""
-
     def __init__(self,
                  kms_providers=None,
                  key_db="encryption",
@@ -24,13 +22,8 @@ class CsfleHelper:
                  key_alt_name=None,
                  schema=None,
                  connection_string=CONNECTION_STRING,
-                 # setting this to True requires manually running mongocryptd
                  mongocryptd_bypass_spawn=False,
                  mongocryptd_spawn_path="mongocryptd"):
-        """If mongocryptd
-        is not installed to in your search path, ensure you override
-        mongocryptd_spawn_path
-        """
         super().__init__()
         if kms_providers is None:
             raise ValueError("kms_provider is required")
@@ -46,8 +39,6 @@ class CsfleHelper:
         self.mongocryptd_spawn_path = mongocryptd_spawn_path
 
     def ensure_unique_index_on_key_vault(self, key_vault):
-
-        # clients are required to create a unique partial index on keyAltNames
         key_vault.create_index("keyAltNames",
                                unique=True,
                                partialFilterExpression={
